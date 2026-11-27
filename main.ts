@@ -6,7 +6,7 @@
 // The program is deterministic: the same repository always writes the same
 // bytes, so the grader's two runs match byte for byte.
 
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -29,8 +29,15 @@ const caps = {
 };
 
 function handIn(): void {
-  rmSync(outDir, { recursive: true, force: true });
+  // Empty the output directory's CONTENTS without removing the directory
+  // itself: the grader mounts /output, and rmdir on a mount point fails
+  // with EBUSY — the previous rmSync(outDir, { recursive: true }) is what
+  // rejected the first submit (grade run exited 1). The grader hands us an
+  // empty /output, so this is a no-op there; locally it clears stale files.
   mkdirSync(outDir, { recursive: true });
+  for (const name of readdirSync(outDir)) {
+    rmSync(join(outDir, name), { recursive: true, force: true });
+  }
   cpSync(join(repoRoot, 'game'), join(outDir, 'game'), { recursive: true });
   cpSync(join(repoRoot, 'screenshots'), join(outDir, 'screenshots'), { recursive: true });
   const dossier = buildDossier(outDir, caps);
